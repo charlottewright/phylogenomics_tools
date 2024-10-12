@@ -208,13 +208,24 @@ def interleave_sequences(dict1, dict2):
         seq1 = dict1[seq_id]
         seq2 = dict2[seq_id]
 
-        # Interleave the letters from both sequences
-        merged_sequence = ''.join(a + b for a, b in zip(seq1, seq2))
-
-        # Store the new sequence in the merged_sequences dictionary
-        merged_sequences[seq_id] = merged_sequence
+        merged_sequence = ''.join(a + b for a, b in zip(seq1, seq2)) # Interleave the letters from both sequences
+        merged_sequences[seq_id] = merged_sequence # Store the new sequence in the merged_sequences dictionary
 
     return merged_sequences
+
+
+def write_partition_file(sequences_dict, num_pos, file_name):
+    # Open the file in write mode
+    with open(file_name, 'w') as file:
+        # Iterate through the dictionary of sequence IDs and sequences
+        for seq_id, sequence in sequences_dict.items():
+            # Calculate the length of the current sequence
+            length = len(sequence)
+            # Write lines for this sequence ID
+            for i in range(1, num_pos + 1):
+                line = f"DNA, {seq_id}_part{i} = {i}-{length}/{i},\n"
+                file.write(line)
+    return()
 
 #%%
 if __name__ == "__main__":
@@ -240,6 +251,11 @@ if __name__ == "__main__":
                         type=str,
                         required=False,
                         default=False)
+    parser.add_argument('-P','--partition',
+                        help='Generate partition files for the input alignment and, if generated, for the alignment which has one or more codon positions removed.',
+                        type=str,
+                        required=False,
+                        default=False)
     # Parse the command-line arguments
     args = parser.parse_args()
 
@@ -247,10 +263,15 @@ if __name__ == "__main__":
     output_prefix = args.prefix
     recode_requested = args.recode
     remove_requested = args.delete
+    partitions_requested = args.partition
     # input_file = '../Analysis/phylogeny_redo/backtrans_nucleotide_alignments_trimmed/999at7088.faa.reformatted.aln.trimal'  # Replace with your file path
 
     print(f"[+]   Reading input alignment file: {input_file}")
     print(f"[+]   Output prefix: {output_prefix}")
+    print(f"[+]   RY-recode requested if needed: {remove_requested}")
+    print(f"[+]   Removal of codon positions if bias remains after recoding: {remove_requested}")
+    print(f"[+]   Partition file(s) requested: {remove_requested}")
+
     print('')
     sequences_dict = read_fasta_file(input_file)
     sequences_dict = {seq_id: sequence.lower() for seq_id, sequence in sequences_dict.items()}
@@ -259,6 +280,10 @@ if __name__ == "__main__":
     #for seq_id, sequence in sequences_dict.items():
     #    print(f"ID: {seq_id}, Sequence: {sequence}")
 
+    if partitions_requested != False:
+        parititon_file = output_prefix + '.partitions' 
+        print(f"[+]   Writing partition file for the alignment to {parititon_file}")
+        write_partition_file(sequences_dict, 3, parititon_file)
     # %%
     proportions_dict = calculate_proportions(sequences_dict)
     average_proportions = calculate_average_proportions_by_counts(sequences_dict) # calculate the average proportions of each base across all sequences
@@ -359,7 +384,6 @@ if __name__ == "__main__":
                 output.write(f">{seq_id}\n{sequence}\n")
 
         print(f"[+]   RY recoded sequences written to {output_alignments_file}.")
-        print('')
 
 #%%
         print('[+]   Repeating calculations of base composition bias on RY recoded sequences.')
@@ -418,8 +442,7 @@ if __name__ == "__main__":
             if (first_codon_p_value < 0.05) & (second_codon_p_value < 0.05) & (third_codon_p_value < 0.05):
                 output.write('Warning! All three codon positions still show composition bias, even after RY recoding.\n')
             print('')
-            print(f"[+]  Base composition results on RY-recoded sequences written to written to {output_file}.")
-            print('')
+            print(f"[+]   Base composition results on RY-recoded sequences written to written to {output_file}.")
 
 #%%
         # if after doing RY-recoding, we still have biased positions, we need to remove them.
@@ -455,24 +478,30 @@ if __name__ == "__main__":
                     output.write('Outcome: Base_composition_bias_remains_after_RY_recoding_suggest_discarding_alignment.\n')
                 # do something bettre??
         elif set(codon_positions_actual) == set([1]):
+                print(f"[+]   Removing codon {codon_positions_actual} from alignment due to base composition bias (p < 0.05)")
                 recoded_sequences_with_deletions = interleave_sequences(second_codon_sequences_dict, third_codon_sequences_dict) # order matters, start with first codon positions then second each time
                 with open(output_file, 'a') as output:
                     output.write('Outcome: Removed_codon_positions_which_still_showed_composition_bias_after_RY_recoding.\n')
         elif set(codon_positions_actual) == set([2]):
+                print(f"[+]   Removing codon {codon_positions_actual} from alignment due to base composition bias (p < 0.05)")
                 recoded_sequences_with_deletions = interleave_sequences(first_codon_sequences_dict, third_codon_sequences_dict)
                 with open(output_file, 'a') as output:
                     output.write('Outcome: Removed_codon_positions_which_still_showed_composition_bias_after_RY_recoding.\n')
         elif set(codon_positions_actual) == set([3]):
+                print(f"[+]   Removing codon {codon_positions_actual} from alignment due to base composition bias (p < 0.05)")
                 recoded_sequences_with_deletions = interleave_sequences(second_codon_sequences_dict, second_codon_sequences_dict)
                 with open(output_file, 'a') as output:
                     output.write('Outcome: Removed_codon_positions_which_still_showed_composition_bias_after_RY_recoding.\n')
             
         output_alignments_file  = output_prefix + '.recoded.positions.deleted'
-        print('')
         print(f"[+]   Writing RY-recoded and codon position(s) removed sequences to {output_file}")
-
+        if partitions_requested != False:
+            parititon_file = output_prefix + '.with_deletions.partitions' 
+            print(f"[+]   Writing partition file for the alignment with removed codon position(s) to {parititon_file}")
+            number_codons_remaining = 3 - len(codon_positions_actual)
+            write_partition_file(recoded_sequences_with_deletions, number_codons_remaining, parititon_file)
+        
         with open(output_alignments_file, 'w') as output:
             for seq_id, sequence in recoded_sequences_with_deletions.items():
             # Write each sequence in the desired format
                 output.write(f">{seq_id}\n{sequence}\n")
-
