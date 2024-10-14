@@ -67,7 +67,7 @@ if __name__ == "__main__":
     parser.add_argument('-P', '--positions', 
                         type=str, 
                         required=True, 
-                        help="Prefix for the output files")
+                        help="Codon positions to retain separated by commas")
     # Parse the command-line arguments
     args = parser.parse_args()
 
