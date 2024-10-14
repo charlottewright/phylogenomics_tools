@@ -35,3 +35,19 @@ Full usage:
   -P PARTITION, --partition PARTITION
                         Generate partition files for the input alignment and, if generated, for the alignment which has one or more codon positions removed.
 ```
+
+## test_for_base_composition_bias.py
+Filter an alignment file to only retain a specific codon position or position(s).
+
+Full usage:
+```
+usage: filter_alignments_by_codon_position.py [-h] -f FILE -p PREFIX -P POSITIONS
+
+options:
+  -h, --help            show this help message and exit
+  -f FILE, --file FILE  Path to the input file
+  -p PREFIX, --prefix PREFIX
+                        Prefix for the output files
+  -P POSITIONS, --positions POSITIONS
+                        Codon positions to retain separated by commas.
+```
